@@ -16,7 +16,7 @@ samtools faidx $PWD/data/GCF_000001405.26_GRCh38_genomic.fna -r $PWD/data/subset
 awk -v FS="\t" 'NR==FNR {header[">"$7] = ">"$10; next} $0 ~ "^>" {sub($0, header[$0]); print}1' $PWD/data/GCF_000001405.26_GRCh38_assembly_report.txt $PWD/data/GRCh38_subset.fa > $PWD/data/GRCh38_alignment.fa
 
 #Creating an index for GRCh38 reference genome
-/home/user/bowtie2-2.2.2/bowtie2-build $PWD/data/GRCh38_alignment.fa $PWD/data/GRCh38_index
+/home/calvin/bowtie2-2.2.2/bowtie2-build $PWD/data/GRCh38_alignment.fa $PWD/data/GRCh38_index
 
 #Getting .bam files for analysis
 for i in {6792585..6792587}; do
@@ -26,7 +26,7 @@ for i in {6792585..6792587}; do
     fastq-dump SRR${i} -O $PWD/data
 
     #Align ChIP-Seq reads to the GRCh38 reference genome
-    /home/user/bowtie2-2.2.2/bowtie2 -x $PWD/data/GRCh38_index -U $PWD/data/SRR${i}.fastq -S $PWD/data/SRR${i}.sam
+    /home/calvin/bowtie2-2.2.2/bowtie2 -x $PWD/data/GRCh38_index -U $PWD/data/SRR${i}.fastq -S $PWD/data/SRR${i}.sam
 
     #Converting .sam to .bam and sorting alignments by name
     samtools sort $PWD/data/SRR${i}.sam -o $PWD/data/bams/SRR${i}_sorted.bam
@@ -50,3 +50,5 @@ while true; do
         * ) echo "Please answer with SRR* or None";;
     esac
 done
+
+bash ROSE.sh -i ./GSE111253/SRX3751764.05.bed -o output_GSE111253 -r ./GSE111253/bams -a ./data/annotation/hg38_refseq.ucsc -c ./GSE111253/SRR6792585_markdup.bam -s 12500 -t 2500 -n both -x 200 -p true -m 1 -v true
