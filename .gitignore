@@ -1,1 +1,4 @@
 data/*
+.nextflow/*
+work/
+SRR*/
