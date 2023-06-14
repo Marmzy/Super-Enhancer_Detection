@@ -2,7 +2,7 @@
 
 nextflow.enable.dsl=2
 
-include { download_data; subset_genome } from "./modules/preprocessing.nf"
+include { download_data; subset_genome; replace_headers } from "./modules/preprocessing.nf"
 
 workflow {
 
@@ -12,5 +12,9 @@ workflow {
 
     // Select entries in the genome FASTA file, belonging to the Primary Assembly or Mitochondrial chromosome
     subsets = subset_genome(ncbi_files)
+    // subsets.subset_ids.view()
+    // subsets.genome_subset.view()
 
+    // Replacing the RefSeq-style fasta headers with UCSC-style headers
+    replace_headers(ncbi_files.map{ it[0] }, subsets.genome_subset, subsets.genome_basename)
 }
