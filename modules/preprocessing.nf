@@ -29,7 +29,7 @@ process index_genome {
         val(genome_basename)
 
     output:
-        val("${genome_basename}_index"), emit: index
+        path("${genome_basename}_index*")
 
     script:
         """
@@ -48,7 +48,7 @@ process replace_headers {
         val(genome_basename)
 
     output:
-        path("*.fa"), emit: alignment
+        path("*.fa")
 
     script:
         """
