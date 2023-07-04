@@ -20,6 +20,24 @@ process download_data {
 }
 
 
+process index_genome {
+
+    publishDir path: "${params.outdir}/data", mode: "copy"
+
+    input:
+        file(alignment)
+        val(genome_basename)
+
+    output:
+        val("${genome_basename}_index"), emit: index
+
+    script:
+        """
+        /home/calvin/bowtie2-2.2.2/bowtie2-build $alignment ${genome_basename}_index
+        """
+}
+
+
 process replace_headers {
 
     publishDir path: "${params.outdir}/data", mode: "copy"
@@ -30,7 +48,7 @@ process replace_headers {
         val(genome_basename)
 
     output:
-        path("*.fa")
+        path("*.fa"), emit: alignment
 
     script:
         """
@@ -47,7 +65,6 @@ process subset_genome {
         tuple file(assembly), file(genome)
 
     output:
-        // path("subset_ids.txt"), emit: subset_ids
         path("subset_ids.txt")
         path("${genome_basename}_subset.fa"), emit: genome_subset
         val(genome_basename), emit: genome_basename

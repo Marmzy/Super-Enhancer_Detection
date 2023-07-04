@@ -2,7 +2,7 @@
 
 nextflow.enable.dsl=2
 
-include { download_data; subset_genome; replace_headers } from "./modules/preprocessing.nf"
+include { download_data; index_genome; replace_headers; subset_genome } from "./modules/preprocessing.nf"
 
 workflow {
 
@@ -16,5 +16,8 @@ workflow {
     // subsets.genome_subset.view()
 
     // Replacing the RefSeq-style fasta headers with UCSC-style headers
-    replace_headers(ncbi_files.map{ it[0] }, subsets.genome_subset, subsets.genome_basename)
+    replaced = replace_headers(ncbi_files.map{ it[0] }, subsets.genome_subset, subsets.genome_basename)
+
+    // Creating an index for GRCh38 reference genome
+    index = index_genome(replaced, subsets.genome_basename)
 }
