@@ -6,17 +6,21 @@ from pathlib import Path
 
 # Initialising data variables
 assembly = config["data"]["assembly"]
+chip_control = config["data"]["chip"]["control"]
+chip_target = config["data"]["chip"]["target"]
 genome = config["data"]["genome"]
 
 # Define wildcards
 index_suffixes = ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
+sra_samples = chip_control + chip_target
 
 rule all:
     input:
         f"data/{Path(assembly).name}",
         f"data/{Path(genome).stem}",
         "data/genome_alignment.fa",
-        expand("data/genome_index.{suffix}", suffix=index_suffixes),
+        # expand("data/genome_index.{suffix}", suffix=index_suffixes),
+        expand("data/SRR{sra}.fastq", sra=sra_samples),
  
 rule download_assembly:
     output:
@@ -62,7 +66,6 @@ rule subset_genome:
         awk -v FS="\t" 'NR==FNR {{header[">"$7] = ">"$10; next}} $0 ~ "^>" {{print header[$0]; next}}1' {input.assembly} {params.genome} > {output} 2>&1 | tee -a {log}
         """
 
-
 rule index_genome:
     input:
         genome = "data/genome_alignment.fa"
@@ -76,4 +79,18 @@ rule index_genome:
         """
         # Index the genome fasta file
         bowtie2-build {input.genome} {params.stem} 2>&1 | tee -a {log}
+        """
+
+rule download_chip:
+    output:
+        expand("data/SRR{sra}.fastq", sra=sra_samples),
+    params:
+        file = expand("SRR{sra}", sra=sra_samples),
+    log:
+        "output/log/download_chip.log"
+    shell:
+        """
+        # Download the ChIP-Seq data
+        prefetch {params.file}
+        fasterq-dump {params.file} -O data 2>&1 | tee -a {log}
         """
