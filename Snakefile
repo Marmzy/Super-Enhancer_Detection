@@ -21,6 +21,7 @@ rule all:
         "data/genome_alignment.fa",
         # expand("data/genome_index.{suffix}", suffix=index_suffixes),
         expand("data/SRR{sra}.fastq", sra=sra_samples),
+        expand("data/SRR{sra}_markdup.bam", sra=sra_samples),
  
 rule download_assembly:
     output:
@@ -70,7 +71,7 @@ rule index_genome:
     input:
         genome = "data/genome_alignment.fa"
     output:
-        index = expand("data/genome_index.{suffix}", suffix=index_suffixes)
+        index = expand("data/genome_index.{suffix}", suffix=index_suffixes)     # Use multiext() function?
     params:
         stem = "data/genome_index"
     log:
@@ -83,7 +84,7 @@ rule index_genome:
 
 rule download_chip:
     output:
-        expand("data/SRR{sra}.fastq", sra=sra_samples),
+        expand("data/SRR{sra}.fastq", sra=sra_samples),         # Use wildcards only, no need for expand
     params:
         file = expand("SRR{sra}", sra=sra_samples),
     log:
@@ -93,4 +94,31 @@ rule download_chip:
         # Download the ChIP-Seq data
         prefetch {params.file}
         fasterq-dump {params.file} -O data 2>&1 | tee -a {log}
+        rm -rf fasterq.tmp.*
+        """
+
+rule align_reads:
+    input:
+        fastq ="data/SRR{sra}.fastq",
+    output:
+        markdup = "data/SRR{sra}_markdup.bam",
+    params:
+        index = "data/genome_index",
+        sam = "data/SRR{sra}.sam",
+        bam = "data/SRR{sra}_sorted.bam",
+    log:
+        "output/log/align_reads_{sra}.log"
+    shell:
+        """
+        #Align ChIP-Seq reads to the reference genome
+        bowtie2 -x {params.index} -U {input.fastq} -S {params.sam}
+
+        #Converting .sam to .bam and sorting alignments by name
+        samtools sort {params.sam} -o {params.bam}
+
+        #Removing PCR duplicates
+        samtools markdup -r {params.bam} {output.markdup}
+
+        #Indexing the .bam files
+        samtools index {output.markdup}
         """
