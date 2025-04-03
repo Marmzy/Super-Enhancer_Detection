@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "Super-Enhancer Dection"
+version = "0.1.0"
+description = ""
+authors = ["Calvin Davey"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.11.5"
+snakemake = "^9.1.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
