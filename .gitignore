@@ -1,4 +1,6 @@
 .snakemake/*
 data/*
+data_2025/*
 images/*
 output/*
+output_2025/*

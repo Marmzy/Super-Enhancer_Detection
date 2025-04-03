@@ -1,124 +1,39 @@
-configfile: "config/example.yaml"
-
-
 from pathlib import Path
 
 
-# Initialising data variables
-assembly = config["data"]["assembly"]
-chip_control = config["data"]["chip"]["control"]
-chip_target = config["data"]["chip"]["target"]
-genome = config["data"]["genome"]
+configfile: "config/example.yaml"
 
-# Define wildcards
-index_suffixes = ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
-sra_samples = chip_control + chip_target
 
-rule all:
-    input:
-        f"data/{Path(assembly).name}",
-        f"data/{Path(genome).stem}",
-        "data/genome_alignment.fa",
-        # expand("data/genome_index.{suffix}", suffix=index_suffixes),
-        expand("data/SRR{sra}.fastq", sra=sra_samples),
-        expand("data/SRR{sra}_markdup.bam", sra=sra_samples),
- 
-rule download_assembly:
-    output:
-        "data/" + str(Path(assembly).name)
-    log:
-        "output/log/download_assembly.log"
-    shell:
-        """ 
-        # Downloading the genome assembly report
-        wget -O {output} {assembly} --tries=3 --waitretry=5 > {log} 2>&1 || echo "Error: Assembly download failed for {assembly}" >> {log}
-        """
+# Get data from configuration file
+DATA_DIR = config["dir"]["data_dir"]
+OUT_DIR = config["dir"]["output_dir"]
+
+# Initialising variables
+GENOME_FILE = Path(config["data"]["genome"]).name
+ASSEMBLY_FILE = Path(config["data"]["assembly_report"]).name
+
 
 rule download_genome:
+    """
+    Download genome and assembly report.
+    """
     output:
-        "data/" + str(Path(genome).stem)
-    log:
-        "output/log/download_genome.log"
-    shell:
-        """
-        # Downloading and unzipping the genome
-        wget -O {output}.gz {genome} --tries=3 --waitretry=5 &&
-        gunzip {output} 2>> {log}
-        """
-
-rule subset_genome:
-    input:
-        assembly = "data/" + str(Path(assembly).name),
-        genome = "data/" + str(Path(genome).stem)
-    output:
-        "data/genome_alignment.fa"
+        genome = f"{DATA_DIR}/{GENOME_FILE}",
+        assembly_report = f"{DATA_DIR}/{ASSEMBLY_FILE}"
     params:
-        ids = temp("data/subset_ids.txt"),
-        genome = temp("data/genome_subset.fa")
+        genome_url = config["data"]["genome"],
+        assembly_report_url = config["data"]["assembly_report"],
     log:
-        "output/log/subset_genome.log"
+        f"{OUT_DIR}/log/download_genome.log"
     shell:
         """
-        # Select the primary assembly accessions from the genome fasta file
-        sort -k1,1V {input.assembly} | awk -F "\t" '$8 == "Primary Assembly" || $8 == "non-nuclear" {{print $7}}' > {params.ids} 2>&1 | tee -a {log}
-        samtools faidx {input.genome} -r {params.ids} -o {params.genome} 2>&1 | tee -a {log}
+        mkdir -p {DATA_DIR}
 
-        # Replacing the RefSeq-style fasta headers with UCSC-style headers
-        awk -v FS="\t" 'NR==FNR {{header[">"$7] = ">"$10; next}} $0 ~ "^>" {{print header[$0]; next}}1' {input.assembly} {params.genome} > {output} 2>&1 | tee -a {log}
-        """
-
-rule index_genome:
-    input:
-        genome = "data/genome_alignment.fa"
-    output:
-        index = expand("data/genome_index.{suffix}", suffix=index_suffixes)     # Use multiext() function?
-    params:
-        stem = "data/genome_index"
-    log:
-        "output/log/index_genome.log"
-    shell:
-        """
-        # Index the genome fasta file
-        bowtie2-build {input.genome} {params.stem} 2>&1 | tee -a {log}
-        """
-
-rule download_chip:
-    output:
-        expand("data/SRR{sra}.fastq", sra=sra_samples),         # Use wildcards only, no need for expand
-    params:
-        file = expand("SRR{sra}", sra=sra_samples),
-    log:
-        "output/log/download_chip.log"
-    shell:
-        """
-        # Download the ChIP-Seq data
-        prefetch {params.file}
-        fasterq-dump {params.file} -O data 2>&1 | tee -a {log}
-        rm -rf fasterq.tmp.*
-        """
-
-rule align_reads:
-    input:
-        fastq ="data/SRR{sra}.fastq",
-    output:
-        markdup = "data/SRR{sra}_markdup.bam",
-    params:
-        index = "data/genome_index",
-        sam = "data/SRR{sra}.sam",
-        bam = "data/SRR{sra}_sorted.bam",
-    log:
-        "output/log/align_reads_{sra}.log"
-    shell:
-        """
-        #Align ChIP-Seq reads to the reference genome
-        bowtie2 -x {params.index} -U {input.fastq} -S {params.sam}
-
-        #Converting .sam to .bam and sorting alignments by name
-        samtools sort {params.sam} -o {params.bam}
-
-        #Removing PCR duplicates
-        samtools markdup -r {params.bam} {output.markdup}
-
-        #Indexing the .bam files
-        samtools index {output.markdup}
+        echo "Downloading genome from {params.genome_url}" >> {log}
+        wget -q -O {output.genome} {params.genome_url} 2>> {log} || (echo "Error downloading genome" >> {log} && exit 1)
+        
+        echo "Downloading assembly report from {params.assembly_report_url}" >> {log}
+        wget -q -O {output.assembly_report} {params.assembly_report_url} 2>> {log} || (echo "Error downloading assembly report" >> {log} && exit 1)
+        
+        echo "Download complete." >> {log}
         """
