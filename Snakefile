@@ -25,6 +25,8 @@ rule download_genome:
         assembly_report_url = config["data"]["assembly_report"],
     log:
         f"{OUT_DIR}/log/download_genome.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/download_genome.txt"
     shell:
         """
         mkdir -p {DATA_DIR}
