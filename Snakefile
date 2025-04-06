@@ -13,12 +13,21 @@ GENOME_FILE = Path(config["data"]["genome"]).name
 ASSEMBLY_FILE = Path(config["data"]["assembly_report"]).name
 
 
+rule all:
+    """
+    Defining the final expected output files.
+    """
+    input:
+        f"{DATA_DIR}/{GENOME_FILE[:-3]}",
+        f"{DATA_DIR}/{ASSEMBLY_FILE}", 
+
+
 rule download_genome:
     """
     Download genome and assembly report.
     """
     output:
-        genome = f"{DATA_DIR}/{GENOME_FILE}",
+        genome = temp(f"{DATA_DIR}/{GENOME_FILE}"),
         assembly_report = f"{DATA_DIR}/{ASSEMBLY_FILE}"
     params:
         genome_url = config["data"]["genome"],
@@ -38,4 +47,25 @@ rule download_genome:
         wget -q -O {output.assembly_report} {params.assembly_report_url} 2>> {log} || (echo "Error downloading assembly report" >> {log} && exit 1)
         
         echo "Download complete." >> {log}
+        """
+
+
+rule unzip_genome:
+    """
+    Unzip downloaded genome.
+    """
+    input:
+        genome = f"{DATA_DIR}/{GENOME_FILE}"
+    output:
+        genome = f"{DATA_DIR}/{GENOME_FILE[:-3]}"
+    log:
+        f"{OUT_DIR}/log/unzip_genome.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/unzip_genome.txt"
+    shell:
+        """
+        echo "Unzipping downloaded genome" >> {log}
+        gunzip {input.genome} 2>> {log} || (echo "Error unzipping downloaded genome" >> {log} && exit 1)
+
+        echo "Unzip complete." >> {log}
         """
