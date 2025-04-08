@@ -12,6 +12,9 @@ OUT_DIR = config["dir"]["output_dir"]
 GENOME_FILE = Path(config["data"]["genome"]).name
 ASSEMBLY_FILE = Path(config["data"]["assembly_report"]).name
 
+# Define wildcards
+index_suffixes = ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
+
 
 rule all:
     """
@@ -21,6 +24,7 @@ rule all:
         f"{DATA_DIR}/{GENOME_FILE[:-3]}",
         f"{DATA_DIR}/{ASSEMBLY_FILE}", 
         f"{DATA_DIR}/genome_alignment.fa",
+        [f"{DATA_DIR}/genome_index.{suffix}" for suffix in index_suffixes],
 
 
 rule download_genome:
@@ -107,4 +111,27 @@ rule subset_genome:
         (echo "Error replacing FASTA headers" >> {log} && exit 1)
 
         echo "Subset and renaming complete." >> {log}
+        """
+
+
+rule index_genome:
+    """
+    Index the subsetted genome.
+    """
+    input:
+        genome = f"{DATA_DIR}/genome_alignment.fa"
+    output:
+        index = [f"{DATA_DIR}/genome_index.{suffix}" for suffix in index_suffixes]
+    params:
+        stem = f"{DATA_DIR}/genome_index"
+    log:
+        f"{OUT_DIR}/log/index_genome.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/index_genome.txt"
+    container:
+        "docker://nottuh/sed-bowtie2:2.5.4"
+    shell:
+        """
+        echo "Index the genome fasta file..." >> {log}
+        bowtie2-build {input.genome} {params.stem} 2>> {log} || (echo "Error indexing genome" >> {log} && exit 1)
         """
