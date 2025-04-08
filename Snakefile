@@ -20,6 +20,7 @@ rule all:
     input:
         f"{DATA_DIR}/{GENOME_FILE[:-3]}",
         f"{DATA_DIR}/{ASSEMBLY_FILE}", 
+        f"{DATA_DIR}/GRCh38_alignment.fa",
 
 
 rule download_genome:
@@ -68,4 +69,42 @@ rule unzip_genome:
         gunzip {input.genome} 2>> {log} || (echo "Error unzipping downloaded genome" >> {log} && exit 1)
 
         echo "Unzip complete." >> {log}
+        """
+
+
+rule subset_genome:
+    """
+    Select primary assembly and mitochondrial chromosomes.
+    """
+    input:
+        genome = f"{DATA_DIR}/{GENOME_FILE[:-3]}",
+        assembly_report = f"{DATA_DIR}/{ASSEMBLY_FILE}"
+    output:
+        renamed = f"{DATA_DIR}/GRCh38_alignment.fa"
+    params:
+        ids = temp(f"{DATA_DIR}/subset_ids.txt"),
+        genome = temp(f"{DATA_DIR}/genome_subset.fa")
+    log:
+        f"{OUT_DIR}/log/subset_genome.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/subset_genome.txt"
+    container:
+        "docker://nottuh/sed-samtools:1.21"
+    shell:
+        """
+        echo "Step 1: Extracting subset sequence IDs from assembly report..." >> {log}
+        sort -k1,1V {input.assembly_report} |
+        awk -F "\\t" '$8 == "Primary Assembly" || $8 == "non-nuclear" {{print $7}}' > {params.ids} 2>> {log} || \
+        (echo "Error extracting IDs" >> {log} && exit 1)
+
+        echo "Step 2: Extracting genome subset using samtools..." >> {log}
+        samtools faidx {input.genome} -r {params.ids} -o {params.genome} 2>> {log} || \
+        (echo "Error during genome subset extraction" >> {log} && exit 1)
+
+        echo "Step 3: Replacing FASTA headers with UCSC-style headers..." >> {log}
+        awk -v FS="\\t" 'NR==FNR {{header[">"$7] = ">"$10; next}} $0 ~ "^>" {{sub($0, header[$0]); print}}1' \
+        {input.assembly_report} {params.genome} > {output.renamed} 2>> {log} || \
+        (echo "Error replacing FASTA headers" >> {log} && exit 1)
+
+        echo "Subset and renaming complete." >> {log}
         """
