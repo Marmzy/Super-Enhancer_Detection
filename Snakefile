@@ -102,7 +102,7 @@ rule subset_genome:
         (echo "Error during genome subset extraction" >> {log} && exit 1)
 
         echo "Step 3: Replacing FASTA headers with UCSC-style headers..." >> {log}
-        awk -v FS="\\t" 'NR==FNR {{header[">"$7] = ">"$10; next}} $0 ~ "^>" {{sub($0, header[$0]); print}}1' \
+        awk -v FS="\\t" 'NR==FNR {{header[">"$7] = ">"$10; next}} $0 ~ "^>" {{sub($0, header[$0])}} 1' \
         {input.assembly_report} {params.genome} > {output.renamed} 2>> {log} || \
         (echo "Error replacing FASTA headers" >> {log} && exit 1)
 
