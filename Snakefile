@@ -20,7 +20,7 @@ rule all:
     input:
         f"{DATA_DIR}/{GENOME_FILE[:-3]}",
         f"{DATA_DIR}/{ASSEMBLY_FILE}", 
-        f"{DATA_DIR}/GRCh38_alignment.fa",
+        f"{DATA_DIR}/genome_alignment.fa",
 
 
 rule download_genome:
@@ -80,7 +80,7 @@ rule subset_genome:
         genome = f"{DATA_DIR}/{GENOME_FILE[:-3]}",
         assembly_report = f"{DATA_DIR}/{ASSEMBLY_FILE}"
     output:
-        renamed = f"{DATA_DIR}/GRCh38_alignment.fa"
+        renamed = f"{DATA_DIR}/genome_alignment.fa"
     params:
         ids = temp(f"{DATA_DIR}/subset_ids.txt"),
         genome = temp(f"{DATA_DIR}/genome_subset.fa")
