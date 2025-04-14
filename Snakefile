@@ -134,4 +134,6 @@ rule index_genome:
         """
         echo "Index the genome fasta file..." >> {log}
         bowtie2-build {input.genome} {params.stem} 2>> {log} || (echo "Error indexing genome" >> {log} && exit 1)
+
+        echo "Indexing of genome complete." >> {log}
         """
