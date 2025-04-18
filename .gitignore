@@ -1,6 +1,8 @@
+.ncbi/*
 .snakemake/*
 data/*
 data_2025/*
 images/*
+SRR*
 output/*
 output_2025/*
