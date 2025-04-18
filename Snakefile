@@ -11,6 +11,9 @@ OUT_DIR = config["dir"]["output_dir"]
 # Initialising variables
 GENOME_FILE = Path(config["data"]["genome"]).name
 ASSEMBLY_FILE = Path(config["data"]["assembly_report"]).name
+CONTROLS_IDS = config["data"]["chipseq"]["control_ids"]
+TARGET_IDS = config["data"]["chipseq"]["target_ids"]
+ALL_IDS = CONTROLS_IDS + TARGET_IDS
 
 # Define wildcards
 index_suffixes = ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
@@ -25,6 +28,7 @@ rule all:
         f"{DATA_DIR}/{ASSEMBLY_FILE}", 
         f"{DATA_DIR}/genome_alignment.fa",
         [f"{DATA_DIR}/genome_index.{suffix}" for suffix in index_suffixes],
+        expand(f"{DATA_DIR}/{{srr}}.fastq", srr=ALL_IDS),
 
 
 rule download_genome:
@@ -136,4 +140,27 @@ rule index_genome:
         bowtie2-build {input.genome} {params.stem} 2>> {log} || (echo "Error indexing genome" >> {log} && exit 1)
 
         echo "Indexing of genome complete." >> {log}
+        """
+
+rule download_chipseq:
+    """
+    Download ChIP-Seq samples.
+    """
+    output:
+        fastq = f"{DATA_DIR}/{{srr}}.fastq"
+    params:
+        srr = lambda wildcards: wildcards.srr
+    log:
+        f"{OUT_DIR}/log/{{srr}}_download.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/{{srr}}_download.txt"
+    container:
+        "docker://nottuh/sed-sratools:3.2.1"
+    shell:
+        """
+        echo "Downloading SRR file: {params.srr}" >> {log}
+        prefetch {params.srr} 2>> {log} || (echo "Error running prefetch" >> {log} && exit 1)
+        fastq-dump {params.srr} -O {DATA_DIR} 2>> {log} || (echo "Error running fastq-dump" >> {log} && exit 1)
+
+        echo "Download of {params.srr} complete." >> {log}
         """
