@@ -29,6 +29,8 @@ rule all:
         f"{DATA_DIR}/genome_alignment.fa",
         [f"{DATA_DIR}/genome_index.{suffix}" for suffix in index_suffixes],
         expand(f"{DATA_DIR}/{{srr}}.fastq", srr=ALL_IDS),
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam", srr=ALL_IDS),
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=ALL_IDS),
 
 
 rule download_genome:
@@ -162,4 +164,47 @@ rule download_chipseq:
         fastq-dump {params.srr} -O {DATA_DIR} 2>> {log} || (echo "Error running fastq-dump" >> {log} && exit 1)
 
         echo "Download of {params.srr} complete." >> {log}
+        """
+
+rule align_reads:
+    """
+    Align reads to reference genome and processing them.
+    """
+    input:
+        fastq = f"{DATA_DIR}/{{srr}}.fastq",
+        index_files = [f"{DATA_DIR}/genome_index.{suffix}" for suffix in index_suffixes],
+    output:
+        sorted = temp(f"{DATA_DIR}/bams/{{srr}}_sorted.bam"),
+        bam = f"{DATA_DIR}/bams/{{srr}}_markdup.bam",
+        bai = f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai",
+        sam = temp(f"{DATA_DIR}/bams/{{srr}}.sam"),
+    params:
+        index = f"{DATA_DIR}/genome_index",
+    log:
+        f"{OUT_DIR}/log/align_reads_{{srr}}.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/align_reads_{{srr}}.txt"
+    container:
+        "docker://nottuh/sed-bowtie2-samtools:latest"
+    shell:
+        """
+        mkdir -p {DATA_DIR}/bams
+
+        echo "Aligning ChIP-Seq reads for {wildcards.srr} to genome..." >> {log}
+        bowtie2 -x {params.index} -U {input.fastq} -S {output.sam} 2>> {log} || \
+        (echo "Error in alignment" >> {log} && exit 1)
+
+        echo "Converting .sam to sorted .bam..." >> {log}
+        samtools sort {output.sam} -o {output.sorted} 2>> {log} || \
+        (echo "Error sorting .bam" >> {log} && exit 1)
+
+        echo "Removing PCR duplicates..." >> {log}
+        samtools markdup -r {output.sorted} {output.bam} 2>> {log} || \
+        (echo "Error removing duplicates" >> {log} && exit 1)
+
+        echo "Indexing .bam file..." >> {log}
+        samtools index {output.bam} 2>> {log} || \
+        (echo "Error indexing .bam" >> {log} && exit 1)
+
+        echo "Finished processing {wildcards.srr}" >> {log}
         """
