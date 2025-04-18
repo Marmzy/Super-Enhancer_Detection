@@ -88,10 +88,9 @@ rule subset_genome:
         genome = f"{DATA_DIR}/{GENOME_FILE[:-3]}",
         assembly_report = f"{DATA_DIR}/{ASSEMBLY_FILE}"
     output:
-        renamed = f"{DATA_DIR}/genome_alignment.fa"
-    params:
+        renamed = f"{DATA_DIR}/genome_alignment.fa",
         ids = temp(f"{DATA_DIR}/subset_ids.txt"),
-        genome = temp(f"{DATA_DIR}/genome_subset.fa")
+        genome = temp(f"{DATA_DIR}/genome_subset.fa"),
     log:
         f"{OUT_DIR}/log/subset_genome.log"
     benchmark:
@@ -102,16 +101,16 @@ rule subset_genome:
         """
         echo "Step 1: Extracting subset sequence IDs from assembly report..." >> {log}
         sort -k1,1V {input.assembly_report} |
-        awk -F "\\t" '$8 == "Primary Assembly" || $8 == "non-nuclear" {{print $7}}' > {params.ids} 2>> {log} || \
+        awk -F "\\t" '$8 == "Primary Assembly" || $8 == "non-nuclear" {{print $7}}' > {output.ids} 2>> {log} || \
         (echo "Error extracting IDs" >> {log} && exit 1)
 
         echo "Step 2: Extracting genome subset using samtools..." >> {log}
-        samtools faidx {input.genome} -r {params.ids} -o {params.genome} 2>> {log} || \
+        samtools faidx {input.genome} -r {output.ids} -o {output.genome} 2>> {log} || \
         (echo "Error during genome subset extraction" >> {log} && exit 1)
 
         echo "Step 3: Replacing FASTA headers with UCSC-style headers..." >> {log}
         awk -v FS="\\t" 'NR==FNR {{header[">"$7] = ">"$10; next}} $0 ~ "^>" {{sub($0, header[$0])}} 1' \
-        {input.assembly_report} {params.genome} > {output.renamed} 2>> {log} || \
+        {input.assembly_report} {output.genome} > {output.renamed} 2>> {log} || \
         (echo "Error replacing FASTA headers" >> {log} && exit 1)
 
         echo "Subset and renaming complete." >> {log}
@@ -151,9 +150,9 @@ rule download_chipseq:
     params:
         srr = lambda wildcards: wildcards.srr
     log:
-        f"{OUT_DIR}/log/{{srr}}_download.log"
+        f"{OUT_DIR}/log/download_chipseq_{{srr}}.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/{{srr}}_download.txt"
+        f"{OUT_DIR}/benchmark/download_chipseq_{{srr}}.txt"
     container:
         "docker://nottuh/sed-sratools:3.2.1"
     shell:
