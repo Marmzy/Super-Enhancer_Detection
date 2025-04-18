@@ -29,8 +29,10 @@ rule all:
         f"{DATA_DIR}/genome_alignment.fa",
         [f"{DATA_DIR}/genome_index.{suffix}" for suffix in index_suffixes],
         expand(f"{DATA_DIR}/{{srr}}.fastq", srr=ALL_IDS),
-        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam", srr=ALL_IDS),
-        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=ALL_IDS),
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam", srr=CONTROLS_IDS),
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=CONTROLS_IDS),
+        expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
+        expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
 
 
 rule download_genome:
@@ -208,3 +210,39 @@ rule align_reads:
 
         echo "Finished processing {wildcards.srr}" >> {log}
         """
+
+rule move_bams:
+    """
+    Move non-control .bam and .bam.bai files.
+    """
+    input:
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam", srr=TARGET_IDS) +
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
+    output:
+        expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
+        expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
+    log:
+        f"{OUT_DIR}/log/move_bams.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/move_bams.txt"
+    run:
+        from pathlib import Path
+
+        data_dir = Path(DATA_DIR)
+        log_file = Path(log[0])
+
+        with open(log_file, "w") as f:
+            for srr in TARGET_IDS:
+                srr_bam = data_dir / "bams" / f"{srr}_markdup.bam"
+                srr_bai = data_dir / "bams" / f"{srr}_markdup.bam.bai"
+
+                new_bam = data_dir / f"{srr}_markdup.bam"
+                new_bai = data_dir / f"{srr}_markdup.bam.bai"
+
+                f.write(f"Moving {srr_bam} to {new_bam}...")
+                srr_bam.rename(new_bam)
+
+                f.write(f"Moving {srr_bai} to {new_bai}...")
+                srr_bai.rename(new_bai)
+
+            f.write("All files moved successfully.\n")
