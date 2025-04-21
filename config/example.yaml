@@ -8,5 +8,5 @@ data:
       - SRR6792586
       - SRR6792587
 dir:
-  data_dir: data_2025
-  output_dir: output_2025
+  data_dir: data
+  output_dir: output
