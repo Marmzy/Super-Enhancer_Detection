@@ -34,6 +34,10 @@ rule all:
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
 
+# ----------------------------------- #
+# 01. Reference Genome Preparation    #
+# ----------------------------------- #
+
 rule download_genome:
     """
     Download genome and assembly report.
@@ -140,6 +144,10 @@ rule index_genome:
 
         echo "Indexing of genome complete." >> {log}
         """
+
+# ------------------------------- #
+# 02. ChIP-seq Data Processing    #
+# ------------------------------- #
 
 rule download_chipseq:
     """
