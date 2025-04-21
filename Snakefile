@@ -57,10 +57,12 @@ rule download_genome:
         mkdir -p {DATA_DIR}
 
         echo "Downloading genome from {params.genome_url}" >> {log}
-        wget -q -O {output.genome} {params.genome_url} 2>> {log} || (echo "Error downloading genome" >> {log} && exit 1)
+        wget -q -O {output.genome} {params.genome_url} 2>> {log} || \
+        (echo "Error downloading genome" >> {log} && exit 1)
         
         echo "Downloading assembly report from {params.assembly_report_url}" >> {log}
-        wget -q -O {output.assembly_report} {params.assembly_report_url} 2>> {log} || (echo "Error downloading assembly report" >> {log} && exit 1)
+        wget -q -O {output.assembly_report} {params.assembly_report_url} 2>> {log} || \
+        (echo "Error downloading assembly report" >> {log} && exit 1)
         
         echo "Download complete." >> {log}
         """
@@ -80,7 +82,8 @@ rule unzip_genome:
     shell:
         """
         echo "Unzipping downloaded genome" >> {log}
-        gunzip {input.genome} 2>> {log} || (echo "Error unzipping downloaded genome" >> {log} && exit 1)
+        gunzip {input.genome} 2>> {log} || \
+        (echo "Error unzipping downloaded genome" >> {log} && exit 1)
 
         echo "Unzip complete." >> {log}
         """
@@ -140,7 +143,8 @@ rule index_genome:
     shell:
         """
         echo "Index the genome fasta file..." >> {log}
-        bowtie2-build {input.genome} {params.stem} 2>> {log} || (echo "Error indexing genome" >> {log} && exit 1)
+        bowtie2-build {input.genome} {params.stem} 2>> {log} || \
+        (echo "Error indexing genome" >> {log} && exit 1)
 
         echo "Indexing of genome complete." >> {log}
         """
@@ -166,8 +170,10 @@ rule download_chipseq:
     shell:
         """
         echo "Downloading SRR file: {params.srr}" >> {log}
-        prefetch {params.srr} 2>> {log} || (echo "Error running prefetch" >> {log} && exit 1)
-        fastq-dump {params.srr} -O {DATA_DIR} 2>> {log} || (echo "Error running fastq-dump" >> {log} && exit 1)
+        prefetch {params.srr} 2>> {log} || \
+        (echo "Error running prefetch" >> {log} && exit 1)
+        fastq-dump {params.srr} -O {DATA_DIR} 2>> {log} || \
+        (echo "Error running fastq-dump" >> {log} && exit 1)
 
         echo "Download of {params.srr} complete." >> {log}
         """
