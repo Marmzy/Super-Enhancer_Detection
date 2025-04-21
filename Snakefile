@@ -49,9 +49,9 @@ rule download_genome:
         genome_url = config["data"]["genome"],
         assembly_report_url = config["data"]["assembly_report"],
     log:
-        f"{OUT_DIR}/log/download_genome.log"
+        f"{OUT_DIR}/log/01_download_genome.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/download_genome.txt"
+        f"{OUT_DIR}/benchmark/01_download_genome.txt"
     shell:
         """
         mkdir -p {DATA_DIR}
@@ -74,9 +74,9 @@ rule unzip_genome:
     output:
         genome = f"{DATA_DIR}/{GENOME_FILE[:-3]}"
     log:
-        f"{OUT_DIR}/log/unzip_genome.log"
+        f"{OUT_DIR}/log/02_unzip_genome.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/unzip_genome.txt"
+        f"{OUT_DIR}/benchmark/02_unzip_genome.txt"
     shell:
         """
         echo "Unzipping downloaded genome" >> {log}
@@ -97,9 +97,9 @@ rule subset_genome:
         ids = temp(f"{DATA_DIR}/subset_ids.txt"),
         genome = temp(f"{DATA_DIR}/genome_subset.fa"),
     log:
-        f"{OUT_DIR}/log/subset_genome.log"
+        f"{OUT_DIR}/log/03_subset_genome.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/subset_genome.txt"
+        f"{OUT_DIR}/benchmark/03_subset_genome.txt"
     container:
         "docker://nottuh/sed-samtools:1.21"
     shell:
@@ -132,9 +132,9 @@ rule index_genome:
     params:
         stem = f"{DATA_DIR}/genome_index"
     log:
-        f"{OUT_DIR}/log/index_genome.log"
+        f"{OUT_DIR}/log/04_index_genome.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/index_genome.txt"
+        f"{OUT_DIR}/benchmark/04_index_genome.txt"
     container:
         "docker://nottuh/sed-bowtie2:2.5.4"
     shell:
@@ -158,9 +158,9 @@ rule download_chipseq:
     params:
         srr = lambda wildcards: wildcards.srr
     log:
-        f"{OUT_DIR}/log/download_chipseq_{{srr}}.log"
+        f"{OUT_DIR}/log/05_download_chipseq_{{srr}}.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/download_chipseq_{{srr}}.txt"
+        f"{OUT_DIR}/benchmark/05_download_chipseq_{{srr}}.txt"
     container:
         "docker://nottuh/sed-sratools:3.2.1"
     shell:
@@ -187,9 +187,9 @@ rule align_reads:
     params:
         index = f"{DATA_DIR}/genome_index",
     log:
-        f"{OUT_DIR}/log/align_reads_{{srr}}.log"
+        f"{OUT_DIR}/log/06_align_reads_{{srr}}.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/align_reads_{{srr}}.txt"
+        f"{OUT_DIR}/benchmark/06_align_reads_{{srr}}.txt"
     container:
         "docker://nottuh/sed-bowtie2-samtools:latest"
     shell:
@@ -226,9 +226,9 @@ rule move_bams:
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
     log:
-        f"{OUT_DIR}/log/move_bams.log"
+        f"{OUT_DIR}/log/07_move_bams.log"
     benchmark:
-        f"{OUT_DIR}/benchmark/move_bams.txt"
+        f"{OUT_DIR}/benchmark/07_move_bams.txt"
     run:
         from pathlib import Path
 
