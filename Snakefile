@@ -15,6 +15,10 @@ CONTROLS_IDS = config["data"]["chipseq"]["control_ids"]
 TARGET_IDS = config["data"]["chipseq"]["target_ids"]
 ALL_IDS = CONTROLS_IDS + TARGET_IDS
 
+# MACS2 parameters
+GENOME_SIZE = config["parameters"]["macs2"]["genome_size"]
+EXTENSION_SIZE = config["parameters"]["macs2"]["extension_size"]
+
 # Define wildcards
 index_suffixes = ["1.bt2", "2.bt2", "3.bt2", "4.bt2", "rev.1.bt2", "rev.2.bt2"]
 
@@ -33,6 +37,7 @@ rule all:
         expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=CONTROLS_IDS),
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
+        expand(f"{DATA_DIR}/macs2/{{srr}}_peaks.narrowPeak", srr=TARGET_IDS),
 
 # ----------------------------------- #
 # 01. Reference Genome Preparation    #
@@ -256,3 +261,43 @@ rule move_bams:
                 srr_bai.rename(new_bai)
 
             f.write("All files moved successfully.\n")
+
+rule call_peaks:
+    """
+    Call peaks with MACS2 using the target BAM files.
+    """
+    input:
+        bam = f"{DATA_DIR}/{{srr}}_markdup.bam",
+        bai = f"{DATA_DIR}/{{srr}}_markdup.bam.bai",
+        control = lambda wildcards: f"{DATA_DIR}/bams/{CONTROLS_IDS[0]}_markdup.bam"
+    output:
+        narrowpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.narrowPeak"
+    params:
+        extension_size = EXTENSION_SIZE,
+        genome_size = GENOME_SIZE,
+        prefix = lambda wildcards: wildcards.srr,
+    log:
+        f"{OUT_DIR}/log/08_call_peaks_{{srr}}.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/08_call_peaks_{{srr}}.txt"
+    container:
+        "docker://nottuh/macs2:2.2.7.1"     # change to nottuh/sed-macs2:2.2.7.1
+    shell:
+        """
+        mkdir -p {DATA_DIR}/macs2
+
+        echo "Calling peaks for {wildcards.srr}..." >> {log}
+        macs2 callpeak \
+            -t {input.bam} \
+            -c {input.control} \
+            -f BAM \
+            -g {params.genome_size} \
+            -n {params.prefix} \
+            --outdir {DATA_DIR}/macs2 \
+            --nomodel \
+            --extsize {params.extension_size} \
+            --keep-dup all 2>> {log} || \
+        (echo "MACS2 peak calling failed" >> {log} && exit 1)
+
+        echo "Peak calling for {wildcards.srr} complete." >> {log}
+        """

@@ -10,3 +10,8 @@ data:
 dir:
   data_dir: data
   output_dir: output
+
+parameters:
+  macs2:
+    genome_size: hs
+    extension_size: 200
