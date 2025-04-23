@@ -13,5 +13,6 @@ dir:
 
 parameters:
   macs2:
+    broad_cutoff: 0.1
     genome_size: hs
     extension_size: 200

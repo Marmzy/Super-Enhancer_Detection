@@ -16,6 +16,7 @@ TARGET_IDS = config["data"]["chipseq"]["target_ids"]
 ALL_IDS = CONTROLS_IDS + TARGET_IDS
 
 # MACS2 parameters
+BROAD_CUTOFF = config["parameters"]["macs2"]["broad_cutoff"]
 GENOME_SIZE = config["parameters"]["macs2"]["genome_size"]
 EXTENSION_SIZE = config["parameters"]["macs2"]["extension_size"]
 
@@ -37,7 +38,7 @@ rule all:
         expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=CONTROLS_IDS),
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
-        expand(f"{DATA_DIR}/macs2/{{srr}}_peaks.narrowPeak", srr=TARGET_IDS),
+        expand(f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak", srr=TARGET_IDS),
 
 # ----------------------------------- #
 # 01. Reference Genome Preparation    #
@@ -271,8 +272,9 @@ rule call_peaks:
         bai = f"{DATA_DIR}/{{srr}}_markdup.bam.bai",
         control = lambda wildcards: f"{DATA_DIR}/bams/{CONTROLS_IDS[0]}_markdup.bam"
     output:
-        narrowpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.narrowPeak"
+        narrowpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak"
     params:
+        broad_cutoff = BROAD_CUTOFF,
         extension_size = EXTENSION_SIZE,
         genome_size = GENOME_SIZE,
         prefix = lambda wildcards: wildcards.srr,
@@ -293,6 +295,8 @@ rule call_peaks:
             -f BAM \
             -g {params.genome_size} \
             -n {params.prefix} \
+            --broad \
+            --broad-cutoff {params.broad_cutoff} \
             --outdir {DATA_DIR}/macs2 \
             --nomodel \
             --extsize {params.extension_size} \
