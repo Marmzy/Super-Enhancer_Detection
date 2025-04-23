@@ -39,6 +39,7 @@ rule all:
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
         expand(f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak", srr=TARGET_IDS),
+        expand(f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3", srr=TARGET_IDS),
 
 # ----------------------------------- #
 # 01. Reference Genome Preparation    #
@@ -304,4 +305,25 @@ rule call_peaks:
         (echo "MACS2 peak calling failed" >> {log} && exit 1)
 
         echo "Peak calling for {wildcards.srr} complete." >> {log}
+        """
+
+rule convert_broadpeak:
+    """
+    Convert MACS2 broadPeak file to GFF3 format.
+    """
+    input:
+        broadpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak"
+    output:
+        gff3 = f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3"
+    log:
+        f"{OUT_DIR}/log/convert_broadpeak_{{srr}}.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/09_convert_broadpeak_{{srr}}.txt"
+    shell:
+        """
+        echo "Converting broadPeak file for {wildcards.srr}..." >> {log}
+        awk 'BEGIN{{OFS="\\t"}} {{print $1, $4, ".", $2+1, $3, ".", ".", ".", $4}}' {input.broadpeak} > {output.gff3} 2>> {log} || \
+        (echo "broadPeak file conversion failed" >> {log} && exit 1)
+
+        echo "Conversion of ROSE-compatible GFF3 file complete." >> {log}
         """
