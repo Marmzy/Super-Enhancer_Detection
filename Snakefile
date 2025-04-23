@@ -11,9 +11,9 @@ OUT_DIR = config["dir"]["output_dir"]
 # Initialising variables
 GENOME_FILE = Path(config["data"]["genome"]).name
 ASSEMBLY_FILE = Path(config["data"]["assembly_report"]).name
-CONTROLS_IDS = config["data"]["chipseq"]["control_ids"]
+CONTROL_IDS = config["data"]["chipseq"]["control_ids"]
 TARGET_IDS = config["data"]["chipseq"]["target_ids"]
-ALL_IDS = CONTROLS_IDS + TARGET_IDS
+ALL_IDS = CONTROL_IDS + TARGET_IDS
 
 # MACS2 parameters
 BROAD_CUTOFF = config["parameters"]["macs2"]["broad_cutoff"]
@@ -34,11 +34,12 @@ rule all:
         f"{DATA_DIR}/genome_alignment.fa",
         [f"{DATA_DIR}/genome_index.{suffix}" for suffix in index_suffixes],
         expand(f"{DATA_DIR}/{{srr}}.fastq", srr=ALL_IDS),
-        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam", srr=CONTROLS_IDS),
-        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=CONTROLS_IDS),
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam", srr=CONTROL_IDS),
+        expand(f"{DATA_DIR}/bams/{{srr}}_markdup.bam.bai", srr=CONTROL_IDS),
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam", srr=TARGET_IDS) +
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
         expand(f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak", srr=TARGET_IDS),
+        expand(f"{DATA_DIR}/macs2/{{control_id}}_peaks.broadPeak", control_id=CONTROL_IDS) if CONTROL_IDS else [],
         expand(f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3", srr=TARGET_IDS),
 
 # ----------------------------------- #
@@ -266,12 +267,12 @@ rule move_bams:
 
 rule call_peaks:
     """
-    Call peaks with MACS2 using the target BAM files.
+    Call peaks with MACS2 on the target BAM files.
     """
     input:
         bam = f"{DATA_DIR}/{{srr}}_markdup.bam",
         bai = f"{DATA_DIR}/{{srr}}_markdup.bam.bai",
-        control = lambda wildcards: f"{DATA_DIR}/bams/{CONTROLS_IDS[0]}_markdup.bam"
+        control = lambda wildcards: f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam" if CONTROL_IDS else None,
     output:
         narrowpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak"
     params:
@@ -292,7 +293,7 @@ rule call_peaks:
         echo "Calling peaks for {wildcards.srr}..." >> {log}
         macs2 callpeak \
             -t {input.bam} \
-            -c {input.control} \
+            {('-c ' + input.control) if input.control else ''} \
             -f BAM \
             -g {params.genome_size} \
             -n {params.prefix} \
@@ -306,6 +307,48 @@ rule call_peaks:
 
         echo "Peak calling for {wildcards.srr} complete." >> {log}
         """
+
+rule call_peaks_control:
+    """
+    Call peaks with MACS2 on the control BAM files, if given.
+    """
+    input:
+        bam = lambda wildcards: f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam" if CONTROL_IDS else None,
+        bai = lambda wildcards: f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam.bai" if CONTROL_IDS else None
+    output:
+        broadpeak = lambda wildcards: f"{DATA_DIR}/macs2/{CONTROL_IDS[0]}_peaks.broadPeak" if CONTROL_IDS else None
+    params:
+        genome_size = GENOME_SIZE,
+        extension_size = EXTENSION_SIZE,
+        broad_cutoff = BROAD_CUTOFF,
+        prefix = lambda wildcards: CONTROL_IDS[0] if CONTROL_IDS else "no_control"
+    log:
+        f"{OUT_DIR}/log/08b_call_peaks_control.log"
+    benchmark:
+        f"{OUT_DIR}/benchmark/08b_call_peaks_control.txt"
+    container:
+        "docker://nottuh/macs2:2.2.7.1"     # change to nottuh/sed-macs2:2.2.7.1
+    run:
+        if not CONTROL_IDS:
+            shell("echo 'No control sample provided. Skipping control peak calling.' >> {log}")
+        shell(f"""
+            echo "Calling peaks for {params.prefix}..." >> {log}
+
+            macs2 callpeak \
+                -t {input.bam} \
+                -f BAM \
+                -g {params.genome_size} \
+                -n {params.prefix} \
+                --broad \
+                --broad-cutoff {params.broad_cutoff} \
+                --outdir {DATA_DIR}/macs2 \
+                --nomodel \
+                --extsize {params.extension_size} \
+                --keep-dup all \
+                2>> {log}
+
+            echo "Peak calling for {wildcards.srr} complete." >> {log}
+        """)
 
 rule convert_broadpeak:
     """
