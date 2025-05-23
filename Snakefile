@@ -40,7 +40,7 @@ rule all:
         expand(f"{DATA_DIR}/{{srr}}_markdup.bam.bai", srr=TARGET_IDS),
         expand(f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak", srr=TARGET_IDS),
         expand(f"{DATA_DIR}/macs2/{{control_id}}_peaks.broadPeak", control_id=CONTROL_IDS) if CONTROL_IDS else [],
-        expand(f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3", srr=TARGET_IDS),
+        # expand(f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3", srr=TARGET_IDS),
 
 # ----------------------------------- #
 # 01. Reference Genome Preparation    #
@@ -271,12 +271,13 @@ rule call_peaks:
     """
     input:
         bam = f"{DATA_DIR}/{{srr}}_markdup.bam",
-        bai = f"{DATA_DIR}/{{srr}}_markdup.bam.bai",
+        # bai = f"{DATA_DIR}/{{srr}}_markdup.bam.bai",
         control = lambda wildcards: f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam" if CONTROL_IDS else None,
     output:
         narrowpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak"
     params:
         broad_cutoff = BROAD_CUTOFF,
+        # control_arg = lambda wildcards: f"-c {DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam" if input.control else "",
         extension_size = EXTENSION_SIZE,
         genome_size = GENOME_SIZE,
         prefix = lambda wildcards: wildcards.srr,
@@ -286,52 +287,67 @@ rule call_peaks:
         f"{OUT_DIR}/benchmark/08_call_peaks_{{srr}}.txt"
     container:
         "docker://nottuh/macs2:2.2.7.1"     # change to nottuh/sed-macs2:2.2.7.1
-    shell:
-        """
-        mkdir -p {DATA_DIR}/macs2
-
-        echo "Calling peaks for {wildcards.srr}..." >> {log}
-        macs2 callpeak \
-            -t {input.bam} \
-            {('-c ' + input.control) if input.control else ''} \
-            -f BAM \
-            -g {params.genome_size} \
-            -n {params.prefix} \
-            --broad \
-            --broad-cutoff {params.broad_cutoff} \
-            --outdir {DATA_DIR}/macs2 \
-            --nomodel \
-            --extsize {params.extension_size} \
-            --keep-dup all 2>> {log} || \
-        (echo "MACS2 peak calling failed" >> {log} && exit 1)
-
-        echo "Peak calling for {wildcards.srr} complete." >> {log}
-        """
-
-rule call_peaks_control:
-    """
-    Call peaks with MACS2 on the control BAM files, if given.
-    """
-    input:
-        bam = lambda wildcards: f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam" if CONTROL_IDS else None,
-        bai = lambda wildcards: f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam.bai" if CONTROL_IDS else None
-    output:
-        broadpeak = lambda wildcards: f"{DATA_DIR}/macs2/{CONTROL_IDS[0]}_peaks.broadPeak" if CONTROL_IDS else None
-    params:
-        genome_size = GENOME_SIZE,
-        extension_size = EXTENSION_SIZE,
-        broad_cutoff = BROAD_CUTOFF,
-        prefix = lambda wildcards: CONTROL_IDS[0] if CONTROL_IDS else "no_control"
-    log:
-        f"{OUT_DIR}/log/08b_call_peaks_control.log"
-    benchmark:
-        f"{OUT_DIR}/benchmark/08b_call_peaks_control.txt"
-    container:
-        "docker://nottuh/macs2:2.2.7.1"     # change to nottuh/sed-macs2:2.2.7.1
     run:
-        if not CONTROL_IDS:
-            shell("echo 'No control sample provided. Skipping control peak calling.' >> {log}")
-        shell(f"""
+        # Write start message to log
+        with open(log[0], "a") as logfile:
+            logfile.write(f"Calling peaks for {wildcards.srr}...\n")
+
+        if input.control:
+            shell(
+                "macs2 callpeak "
+                "-t {input.bam} "
+                "-c {input.control} "
+                "-f BAM "
+                "-g {params.genome_size} "
+                "-n {wildcards.srr} "
+                "--broad "
+                "--broad-cutoff {params.broad_cutoff} "
+                "--outdir {DATA_DIR}/macs2 "
+                "--nomodel "
+                "--extsize {params.extension_size} "
+                "--keep-dup all 2>> {log}"
+            )
+        else:
+            shell(
+                "macs2 callpeak "
+                "-t {input.bam} "
+                "-f BAM "
+                "-g {params.genome_size} "
+                "-n {wildcards.srr} "
+                "--broad "
+                "--broad-cutoff {params.broad_cutoff} "
+                "--outdir {DATA_DIR}/macs2 "
+                "--nomodel "
+                "--extsize {params.extension_size} "
+                "--keep-dup all 2>> {log}"
+            )
+
+        with open(log[0], "a") as logfile:
+            logfile.write(f"Peak calling for {wildcards.srr} complete.\n")
+
+if CONTROL_IDS:
+    rule call_peaks_control:
+        """
+        Call peaks with MACS2 on the control BAM files, if given.
+        """
+        input:
+            bam = f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam",
+            bai = f"{DATA_DIR}/bams/{CONTROL_IDS[0]}_markdup.bam.bai"
+        output:
+            broadpeak = f"{DATA_DIR}/macs2/{CONTROL_IDS[0]}_peaks.broadPeak"
+        params:
+            genome_size = GENOME_SIZE,
+            extension_size = EXTENSION_SIZE,
+            broad_cutoff = BROAD_CUTOFF,
+            prefix = CONTROL_IDS[0]
+        log:
+            f"{OUT_DIR}/log/08b_call_peaks_{CONTROL_IDS[0]}.log"
+        benchmark:
+            f"{OUT_DIR}/benchmark/08b_call_peaks_{CONTROL_IDS[0]}.txt"
+        container:
+            "docker://nottuh/macs2:2.2.7.1"     # change to nottuh/sed-macs2:2.2.7.1
+        shell:
+            """
             echo "Calling peaks for {params.prefix}..." >> {log}
 
             macs2 callpeak \
@@ -347,26 +363,26 @@ rule call_peaks_control:
                 --keep-dup all \
                 2>> {log}
 
-            echo "Peak calling for {wildcards.srr} complete." >> {log}
-        """)
+            echo "Peak calling for {params.prefix} complete." >> {log}
+            """
 
-rule convert_broadpeak:
-    """
-    Convert MACS2 broadPeak file to GFF3 format.
-    """
-    input:
-        broadpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak"
-    output:
-        gff3 = f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3"
-    log:
-        f"{OUT_DIR}/log/convert_broadpeak_{{srr}}.log"
-    benchmark:
-        f"{OUT_DIR}/benchmark/09_convert_broadpeak_{{srr}}.txt"
-    shell:
-        """
-        echo "Converting broadPeak file for {wildcards.srr}..." >> {log}
-        awk 'BEGIN{{OFS="\\t"}} {{print $1, $4, ".", $2+1, $3, ".", ".", ".", $4}}' {input.broadpeak} > {output.gff3} 2>> {log} || \
-        (echo "broadPeak file conversion failed" >> {log} && exit 1)
+# rule convert_broadpeak:
+#     """
+#     Convert MACS2 broadPeak file to GFF3 format.
+#     """
+#     input:
+#         broadpeak = f"{DATA_DIR}/macs2/{{srr}}_peaks.broadPeak"
+#     output:
+#         gff3 = f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3"
+#     log:
+#         f"{OUT_DIR}/log/convert_broadpeak_{{srr}}.log"
+#     benchmark:
+#         f"{OUT_DIR}/benchmark/09_convert_broadpeak_{{srr}}.txt"
+#     shell:
+#         """
+#         echo "Converting broadPeak file for {wildcards.srr}..." >> {log}
+#         awk 'BEGIN{{OFS="\\t"}} {{print $1, $4, ".", $2+1, $3, ".", ".", ".", $4}}' {input.broadpeak} > {output.gff3} 2>> {log} || \
+#         (echo "broadPeak file conversion failed" >> {log} && exit 1)
 
-        echo "Conversion of ROSE-compatible GFF3 file complete." >> {log}
-        """
+#         echo "Conversion of ROSE-compatible GFF3 file complete." >> {log}
+#         """
