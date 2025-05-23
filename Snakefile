@@ -42,9 +42,9 @@ rule all:
         expand(f"{DATA_DIR}/macs2/{{control_id}}_peaks.broadPeak", control_id=CONTROL_IDS) if CONTROL_IDS else [],
         # expand(f"{DATA_DIR}/{{srr}}_constituent_enhancers.gff3", srr=TARGET_IDS),
 
-# ----------------------------------- #
-# 01. Reference Genome Preparation    #
-# ----------------------------------- #
+# -------------------------------- #
+# 01. Reference Genome Preparation #
+# -------------------------------- #
 
 rule download_genome:
     """
@@ -157,9 +157,9 @@ rule index_genome:
         echo "Indexing of genome complete." >> {log}
         """
 
-# ------------------------------- #
-# 02. ChIP-seq Data Processing    #
-# ------------------------------- #
+# ---------------------------- #
+# 02. ChIP-seq Data Processing #
+# ---------------------------- #
 
 rule download_chipseq:
     """
